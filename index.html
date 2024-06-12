@@ -1,0 +1,232 @@
+<!doctype html> 
+<html lang="en"> 
+<head> 
+    <meta charset="UTF-8" />
+    <title>Делаем игру на Phaser!</title>
+    <script src="../node_modules/phaser/dist/phaser.min.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+<script type="text/javascript">
+
+var config = {
+    type: Phaser.AUTO,
+    width: 800,
+    height: 600,
+    physics: {
+        default: 'arcade',
+        arcade: {
+            gravity: { y: 0 },
+            friction: {x: 100},
+            debug: false
+        }
+    },
+    scene: {
+        preload: preload,
+        create: create,
+        update: update
+    }
+};
+
+var game = new Phaser.Game(config);
+
+function preload ()
+{
+    this.load.spritesheet('neco', 'src/neco.png', {frameWidth:80, frameHeight:80});
+    this.load.spritesheet('man', 'src/mannequin.png', {frameWidth:48, frameHeight: 48})
+    this.load.image('sky', 'src/sky.png')
+
+    this.load.image('base', 'src/SampleMap/[Base]BaseChip_pipo.png')
+    this.load.image('water', 'src/SampleMap/[A]Water_pipo.png')
+    this.load.image('grass', 'src/SampleMap/[A]Grass_pipo.png')
+    this.load.image('flower', 'src/SampleMap/[A]Flower_pipo.png')
+    // this.load.tilemapTiledJSON('tilemap', 'src/maps/map.json')
+    this.load.tilemapTiledJSON('samplemap', 'src/SampleMap/samplemap.json')
+
+}
+
+var speed = 400;
+var isTurned = false;
+var positionText;
+var seconds = 0;
+
+function create ()
+{
+    const map = this.add.tilemap('samplemap' );
+
+    const baseSet = map.addTilesetImage('[Base]BaseChip_pipo', 'base');
+    const waterSet = map.addTilesetImage('[A]Water_pipo', 'water');
+    const grassSet = map.addTilesetImage('[A]Grass_pipo', 'grass');
+    const flowerSet = map.addTilesetImage('[A]Flower_pipo', 'flower');
+
+    const groundLayer = map.createLayer('ground', [baseSet, waterSet, grassSet, flowerSet]);
+    const grassLayer = map.createLayer('grass', [baseSet, waterSet, grassSet, flowerSet]);
+    const farmLayer = map.createLayer('farm', [baseSet, waterSet, grassSet, flowerSet]);
+    const farmUpLayer = map.createLayer('farm_up', [baseSet, waterSet, grassSet, flowerSet]);
+    const waterLayer = map.createLayer('water', [baseSet, waterSet, grassSet, flowerSet]);
+    const waterGrassLayer = map.createLayer('water_grass', [baseSet, waterSet, grassSet, flowerSet]);
+    const buildingLayer = map.createLayer('building', [baseSet, waterSet, grassSet, flowerSet]);
+    const buildingUpLayer = map.createLayer('building_up', [baseSet, waterSet, grassSet, flowerSet]);
+    
+    player = this.physics.add.sprite(1200, 1000, 'neco').setScale(0.7);
+    
+    const treeLayer = map.createLayer('tree', [baseSet, waterSet, grassSet, flowerSet]);
+
+    // buildingLayer.setCollisionByProperty({collides:true});
+    // waterLayer.setCollisionByProperty({collides:true});
+    // farmLayer.setCollisionByProperty({collides:true});
+    // this.physics.add.collider(player, waterLayer);
+    // this.physics.add.collider(player, buildingLayer);
+    // this.physics.add.collider(player, farmLayer);
+    
+    // Создадим игрока и расположим его в заданных координатах
+    player.setBodySize(10,10)
+
+    //  Физические свойства персонажа игрока. Давайте сделаем его прыгучим!.
+    player.setBounce(0.1);
+
+    //  Наши анмации.
+    this.anims.create({
+        key: 'playerMoveLeft',
+        frames: this.anims.generateFrameNumbers('neco', { start: 14, end: 23 }),
+        frameRate: 10,
+        repeat: -1,
+    });
+
+    this.anims.create({
+        key: 'playerIdleRight',
+        frames: [ { key: 'neco', frame: 25 } ],
+        frameRate: 20
+    });
+    
+    this.anims.create({
+        key: 'playerIdleLeft',
+        frames: [ { key: 'neco', frame: 24 } ],
+        frameRate: 20
+    });
+
+    this.anims.create({
+        key: 'playerMoveRight',
+        frames: this.anims.generateFrameNumbers('neco', { start: 2, end: 11 }),
+        frameRate: 10,
+        repeat: -1
+    });
+
+    this.anims.create({
+        key: 'enemyMoveRight',
+        frames: this.anims.generateFrameNumbers('man', { start: 0, end: 5 }),
+        frameRate: 10,
+        repeat: -1
+    });
+
+    this.anims.create({
+        key: 'enemyMoveLeft',
+        frames: this.anims.generateFrameNumbers('man', { start: 7, end: 12 }),
+        frameRate: 10,
+        repeat: -1
+    });
+    
+    this.anims.create({
+        key: 'enemyIdle',
+        frames: [ { key: 'man', frame: 6 } ],
+        frameRate: 10,
+        repeat: -1
+    });
+
+    //  Отслеживание нажатий
+    cursors = this.input.keyboard.createCursorKeys();
+    positionText = this.add.text(16,16, 'Position: '+player.x+' '+player.y)
+    positionText.scrollFactorX = 0
+    positionText.scrollFactorY = 0
+
+    enemies = this.physics.add.group()
+    enemy = enemies.create(1300, 1000, 'man', 6, true, true)
+    enemy.body.set
+
+}
+
+function update ()
+{
+    playerMoveDirection = getDirections(cursors) 
+    
+    player.setVelocity(playerMoveDirection.x * speed, playerMoveDirection.y * speed)
+    
+    if (playerMoveDirection.length()>0){
+        if (isTurned){
+            player.anims.play('playerMoveLeft', true)
+        } else{
+            player.anims.play('playerMoveRight', true)
+        }
+    } else {
+        isTurned ? player.anims.play('playerIdleRight', true) : player.anims.play('playerIdleLeft', true)
+    }
+
+    positionText.setText('Position: '+player.x+' '+player.y)
+    this.cameras.main.startFollow(player, true, 0.1, 0.1)
+    enemyLogic(this, enemy, player)
+}
+function getDirections(cursors){
+    let direction = new Phaser.Math.Vector2(0,0);
+
+    if (cursors.left.isDown)
+    {
+        direction.x = -1;
+        isTurned = true;
+    }
+    if (cursors.right.isDown)
+    {
+        direction.x = 1;
+        isTurned = false;
+    }
+    if (cursors.up.isDown)
+    {
+        direction.y = -1;
+    }
+    if (cursors.down.isDown)
+    {
+        direction.y = 1;
+    }
+    direction.normalize()
+    return direction
+}
+function enemyLogic(context, enemy, player){
+
+    if (Phaser.Math.Distance.Between(enemy.x, enemy.y, player.x, player.y)<50){
+        // enemy.setVelocity(0);
+        // console.log('AAAAAAAAAA!')
+        while (Phaser.Math.Distance.Between(enemy.x, enemy.y, player.x, player.y)<300){
+            enemy.setPosition(Phaser.Math.Between(0, 1900), Phaser.Math.Between(0, 1900))
+        }
+    } else {
+        context.physics.moveToObject(enemy, player, 120)
+    }
+
+    enemy.flipX = false;
+    if (enemy.body.velocity.x > 0){
+        enemy.setData('turned', true)
+    } 
+    if(enemy.body.velocity.x < 0) {
+        enemy.setData('turned', false)
+    }
+    if (enemy.body.velocity.length()>0){
+        if(enemy.getData('turned')){
+            enemy.anims.play('enemyMoveRight', true)
+        } else {
+            enemy.anims.play('enemyMoveLeft', true)
+        }
+    } else {
+        enemy.anims.play('enemyIdle', true)
+        enemy.getData('turned') ? enemy.flipX = false : enemy.flipX = true;
+    }
+    
+}
+
+</script>
+
+</body>
+</html>
