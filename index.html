@@ -16,13 +16,11 @@
 
 var config = {
     type: Phaser.AUTO,
-    width: 800,
-    height: 600,
+    width: 1024,
+    height: 768,
     physics: {
         default: 'arcade',
         arcade: {
-            gravity: { y: 0 },
-            friction: {x: 100},
             debug: false
         }
     },
@@ -37,7 +35,7 @@ var game = new Phaser.Game(config);
 
 function preload ()
 {
-    this.load.spritesheet('neco', 'src/neco.png', {frameWidth:80, frameHeight:80});
+    this.load.spritesheet('vagabond', 'src/vagabond.png', {frameWidth:64, frameHeight:64});
     this.load.spritesheet('man', 'src/mannequin.png', {frameWidth:48, frameHeight: 48})
     this.load.image('sky', 'src/sky.png')
 
@@ -45,19 +43,17 @@ function preload ()
     this.load.image('water', 'src/SampleMap/[A]Water_pipo.png')
     this.load.image('grass', 'src/SampleMap/[A]Grass_pipo.png')
     this.load.image('flower', 'src/SampleMap/[A]Flower_pipo.png')
-    // this.load.tilemapTiledJSON('tilemap', 'src/maps/map.json')
     this.load.tilemapTiledJSON('samplemap', 'src/SampleMap/samplemap.json')
-
 }
 
-var speed = 400;
+var speed = 200;
 var isTurned = false;
 var positionText;
 var seconds = 0;
 
 function create ()
 {
-    const map = this.add.tilemap('samplemap' );
+    map = this.add.tilemap('samplemap' );
 
     const baseSet = map.addTilesetImage('[Base]BaseChip_pipo', 'base');
     const waterSet = map.addTilesetImage('[A]Water_pipo', 'water');
@@ -66,53 +62,47 @@ function create ()
 
     const groundLayer = map.createLayer('ground', [baseSet, waterSet, grassSet, flowerSet]);
     const grassLayer = map.createLayer('grass', [baseSet, waterSet, grassSet, flowerSet]);
-    const farmLayer = map.createLayer('farm', [baseSet, waterSet, grassSet, flowerSet]);
-    const farmUpLayer = map.createLayer('farm_up', [baseSet, waterSet, grassSet, flowerSet]);
     const waterLayer = map.createLayer('water', [baseSet, waterSet, grassSet, flowerSet]);
     const waterGrassLayer = map.createLayer('water_grass', [baseSet, waterSet, grassSet, flowerSet]);
     const buildingLayer = map.createLayer('building', [baseSet, waterSet, grassSet, flowerSet]);
-    const buildingUpLayer = map.createLayer('building_up', [baseSet, waterSet, grassSet, flowerSet]);
+    const farmLayer = map.createLayer('farm', [baseSet, waterSet, grassSet, flowerSet]);
+    const farmUpLayer = map.createLayer('farm_up', [baseSet, waterSet, grassSet, flowerSet]);
+    const collisionLayer = map.createLayer('collisions', []);
     
-    player = this.physics.add.sprite(1200, 1000, 'neco').setScale(0.7);
+    player = this.physics.add.sprite(1200, 1000, 'vagabond').setScale(2);
+    enemies = this.physics.add.group();
+    enemy = enemies.create(1300, 1000, 'man', 6, true, true).setScale(2)
     
     const treeLayer = map.createLayer('tree', [baseSet, waterSet, grassSet, flowerSet]);
-
-    // buildingLayer.setCollisionByProperty({collides:true});
-    // waterLayer.setCollisionByProperty({collides:true});
-    // farmLayer.setCollisionByProperty({collides:true});
-    // this.physics.add.collider(player, waterLayer);
-    // this.physics.add.collider(player, buildingLayer);
-    // this.physics.add.collider(player, farmLayer);
+    const buildingUpLayer = map.createLayer('building_up', [baseSet, waterSet, grassSet, flowerSet]);
     
     // Создадим игрока и расположим его в заданных координатах
     player.setBodySize(10,10)
-
-    //  Физические свойства персонажа игрока. Давайте сделаем его прыгучим!.
-    player.setBounce(0.1);
+    player.setOffset(27,57)
 
     //  Наши анмации.
     this.anims.create({
         key: 'playerMoveLeft',
-        frames: this.anims.generateFrameNumbers('neco', { start: 14, end: 23 }),
+        frames: this.anims.generateFrameNumbers('vagabond', { start: 8, end: 15 }),
         frameRate: 10,
         repeat: -1,
     });
 
     this.anims.create({
         key: 'playerIdleRight',
-        frames: [ { key: 'neco', frame: 25 } ],
+        frames: [ { key: 'vagabond', frame: 17 } ],
         frameRate: 20
     });
     
     this.anims.create({
         key: 'playerIdleLeft',
-        frames: [ { key: 'neco', frame: 24 } ],
+        frames: [ { key: 'vagabond', frame: 16 } ],
         frameRate: 20
     });
 
     this.anims.create({
         key: 'playerMoveRight',
-        frames: this.anims.generateFrameNumbers('neco', { start: 2, end: 11 }),
+        frames: this.anims.generateFrameNumbers('vagabond', { start: 0, end: 7 }),
         frameRate: 10,
         repeat: -1
     });
@@ -120,21 +110,21 @@ function create ()
     this.anims.create({
         key: 'enemyMoveRight',
         frames: this.anims.generateFrameNumbers('man', { start: 0, end: 5 }),
-        frameRate: 10,
+        frameRate: 8,
         repeat: -1
     });
 
     this.anims.create({
         key: 'enemyMoveLeft',
-        frames: this.anims.generateFrameNumbers('man', { start: 7, end: 12 }),
-        frameRate: 10,
+        frames: this.anims.generateFrameNumbers('man', { start: 12, end: 7 }),
+        frameRate: 8,
         repeat: -1
     });
     
     this.anims.create({
         key: 'enemyIdle',
         frames: [ { key: 'man', frame: 6 } ],
-        frameRate: 10,
+        frameRate: 8,
         repeat: -1
     });
 
@@ -144,15 +134,24 @@ function create ()
     positionText.scrollFactorX = 0
     positionText.scrollFactorY = 0
 
-    enemies = this.physics.add.group()
-    enemy = enemies.create(1300, 1000, 'man', 6, true, true)
-    enemy.body.set
+    enemy.setBodySize(15, 15);
+    enemy.setOffset(24, 46);
+    enemy.setData('health', 7);
+    enemytext = this.add.text(enemy.x, enemy.y - 20, enemy.getData('health'))
 
+    collisionLayer.setCollision(294)
+    this.physics.add.collider(player, collisionLayer)
+    this.physics.add.collider(enemies, collisionLayer)
+
+    // playercircle = this.add.ellipse(player.x, player.y, 5, 5, 0xff0000)
+    // enemycircle = this.add.ellipse(enemy.x, enemy.y, 5, 5, 0x0000ff)
+
+    player.setData('attackCooldown', 0)
 }
 
 function update ()
 {
-    playerMoveDirection = getDirections(cursors) 
+    playerMoveDirection = getDirections(cursors, this) 
     
     player.setVelocity(playerMoveDirection.x * speed, playerMoveDirection.y * speed)
     
@@ -166,11 +165,23 @@ function update ()
         isTurned ? player.anims.play('playerIdleRight', true) : player.anims.play('playerIdleLeft', true)
     }
 
-    positionText.setText('Position: '+player.x+' '+player.y)
-    this.cameras.main.startFollow(player, true, 0.1, 0.1)
-    enemyLogic(this, enemy, player)
+    positionText.setText('Position: '+player.x+' '+player.y);
+    enemytext.setText(enemy.getData('health'));
+    enemytext.setPosition(enemy.x, enemy.y - 20)
+    enemytext.set
+    
+    this.cameras.main.startFollow(player, true, 0.1, 0.1);
+    enemyLogic(this, enemy, player);
+    //11 - up, 12 - down, 13 -  left, 14 - right
+    // console.log(player.body.facing)
+    // playercircle.setPosition(player.body.x, player.body.y)
+    // enemycircle.setPosition(enemy.body.x, enemy.body.y)
+
+    if (player.getData('attackCooldown')>0){
+        player.setData('attackCooldown', player.getData('attackCooldown') - 1)
+    }
 }
-function getDirections(cursors){
+function getDirections(cursors, scene){
     let direction = new Phaser.Math.Vector2(0,0);
 
     if (cursors.left.isDown)
@@ -191,39 +202,81 @@ function getDirections(cursors){
     {
         direction.y = 1;
     }
+    if (cursors.space.isDown){
+        attack(player, scene);
+    }
+    if (cursors.shift.isDown){
+        heal(player, scene)
+    }
     direction.normalize()
     return direction
 }
-function enemyLogic(context, enemy, player){
+function enemyLogic(scene, enemy, player){
 
-    if (Phaser.Math.Distance.Between(enemy.x, enemy.y, player.x, player.y)<50){
-        // enemy.setVelocity(0);
+    if (Phaser.Math.Distance.Between(enemy.body.x, enemy.body.y, player.body.x, player.body.y)<100){
+        enemy.setVelocity(0);
         // console.log('AAAAAAAAAA!')
-        while (Phaser.Math.Distance.Between(enemy.x, enemy.y, player.x, player.y)<300){
-            enemy.setPosition(Phaser.Math.Between(0, 1900), Phaser.Math.Between(0, 1900))
-        }
     } else {
-        context.physics.moveToObject(enemy, player, 120)
+        scene.physics.moveTo(enemy, player.body.x, player.body.y-enemy.height, speed*0.9);
     }
 
     enemy.flipX = false;
     if (enemy.body.velocity.x > 0){
-        enemy.setData('turned', true)
+        enemy.setData('turned', true);
     } 
     if(enemy.body.velocity.x < 0) {
-        enemy.setData('turned', false)
+        enemy.setData('turned', false);
     }
     if (enemy.body.velocity.length()>0){
         if(enemy.getData('turned')){
-            enemy.anims.play('enemyMoveRight', true)
+            enemy.anims.play('enemyMoveRight', true);
         } else {
-            enemy.anims.play('enemyMoveLeft', true)
+            enemy.anims.play('enemyMoveLeft', true);
         }
     } else {
         enemy.anims.play('enemyIdle', true)
         enemy.getData('turned') ? enemy.flipX = false : enemy.flipX = true;
     }
-    
+    if (enemy.getData('health') == 0){
+        console.log("Enemy is Dead!");
+        enemy.setData('health', Phaser.Math.Between(-10, 10));
+        randomTeleportEnemy(enemy);
+    }
+    if (enemy.getData('health') < 0 ){
+        enemy.setTint(0x880088)
+    }
+    else{
+        enemy.clearTint();
+    }
+}
+function randomTeleportEnemy(enemy){
+    while (Phaser.Math.Distance.Between(enemy.x, enemy.y, player.x, player.y)<300){
+        enemy.setPosition(Phaser.Math.Between(0, 1900), Phaser.Math.Between(0, 1900));
+    }
+}
+function attack(player,scene){
+    if (player.getData('attackCooldown') == 0){
+        let hitbox = scene.add.rectangle(player.x, player.y, 200, 200, 0xff0000, 0.2);
+        scene.physics.add.collider(hitbox, enemy.body, takeDamage(enemy, -2), null, scene);
+        
+        scene.time.delayedCall(100, function(){hitbox.destroy()});
+        
+        player.setData('attackCooldown', 20);
+    }
+}
+function heal(player,scene){
+    if (player.getData('attackCooldown') == 0){
+        let hitbox = scene.add.rectangle(player.x, player.y, 200, 200, 0x00ff00, 0.2);
+        scene.physics.add.collider(hitbox, enemies, takeDamage(enemy, 3), null, scene);
+        
+        scene.time.delayedCall(100, function(){hitbox.destroy()});
+        
+        player.setData('attackCooldown', 20);
+    }
+}
+
+function takeDamage(target, damage){
+    target.setData('health', target.getData('health') + damage)
 }
 
 </script>
