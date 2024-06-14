@@ -135,16 +135,17 @@ function create ()
     positionText.scrollFactorY = 0
 
     enemy.setBodySize(15, 15);
-    enemy.setOffset(24, 46);
+    enemy.setOffset(16, 38);
     enemy.setData('health', 7);
+    enemy.setData('iframes', 10);
     enemytext = this.add.text(enemy.x, enemy.y - 20, enemy.getData('health'))
 
     collisionLayer.setCollision(294)
     this.physics.add.collider(player, collisionLayer)
     this.physics.add.collider(enemies, collisionLayer)
 
-    // playercircle = this.add.ellipse(player.x, player.y, 5, 5, 0xff0000)
-    // enemycircle = this.add.ellipse(enemy.x, enemy.y, 5, 5, 0x0000ff)
+    playercircle = this.add.ellipse(player.body.center.x, player.body.center.y, 10, 10, 0xff0000)
+    enemycircle = this.add.ellipse(enemy.x, enemy.y, 15, 15, 0x0000ff)
 
     player.setData('attackCooldown', 0)
 }
@@ -168,14 +169,13 @@ function update ()
     positionText.setText('Position: '+player.x+' '+player.y);
     enemytext.setText(enemy.getData('health'));
     enemytext.setPosition(enemy.x, enemy.y - 20)
-    enemytext.set
     
     this.cameras.main.startFollow(player, true, 0.1, 0.1);
     enemyLogic(this, enemy, player);
     //11 - up, 12 - down, 13 -  left, 14 - right
     // console.log(player.body.facing)
-    // playercircle.setPosition(player.body.x, player.body.y)
-    // enemycircle.setPosition(enemy.body.x, enemy.body.y)
+    playercircle.setPosition(player.body.center.x, player.body.center.y)
+    enemycircle.setPosition(enemy.body.center.x, enemy.body.center.y)
 
     if (player.getData('attackCooldown')>0){
         player.setData('attackCooldown', player.getData('attackCooldown') - 1)
@@ -202,11 +202,11 @@ function getDirections(cursors, scene){
     {
         direction.y = 1;
     }
-    if (cursors.space.isDown){
-        attack(player, scene);
-    }
     if (cursors.shift.isDown){
-        heal(player, scene)
+        heal(player, enemy, scene);
+    }
+    if (cursors.space.isDown){
+        attack(player, enemy, scene);
     }
     direction.normalize()
     return direction
@@ -248,35 +248,48 @@ function enemyLogic(scene, enemy, player){
     else{
         enemy.clearTint();
     }
+    if (enemy.getData('iframes')>0){
+        enemy.data.values.iframes -= 1;
+    }
 }
 function randomTeleportEnemy(enemy){
     while (Phaser.Math.Distance.Between(enemy.x, enemy.y, player.x, player.y)<300){
         enemy.setPosition(Phaser.Math.Between(0, 1900), Phaser.Math.Between(0, 1900));
     }
 }
-function attack(player,scene){
+function attack(player, target, scene){
     if (player.getData('attackCooldown') == 0){
-        let hitbox = scene.add.rectangle(player.x, player.y, 200, 200, 0xff0000, 0.2);
-        scene.physics.add.collider(hitbox, enemy.body, takeDamage(enemy, -2), null, scene);
+        hitbox = scene.add.rectangle(player.body.x, player.body.y, 100, 100, 0xff0000, 0.2);
+        hitboxBody = new Phaser.Physics.Arcade.StaticBody(scene.physics.world, hitbox);
+        hitboxCollider = scene.physics.add.collider(hitbox, target, function(){takeDamage(target, -2)}, null, scene);
+        hitbox.body = hitboxBody;
         
         scene.time.delayedCall(100, function(){hitbox.destroy()});
         
         player.setData('attackCooldown', 20);
     }
 }
-function heal(player,scene){
+function heal(player, target, scene){
     if (player.getData('attackCooldown') == 0){
-        let hitbox = scene.add.rectangle(player.x, player.y, 200, 200, 0x00ff00, 0.2);
-        scene.physics.add.collider(hitbox, enemies, takeDamage(enemy, 3), null, scene);
+        healbox = scene.add.rectangle(player.body.x, player.body.y, 100, 100, 0x00ff00, 0.2);
+        healboxBody = new Phaser.Physics.Arcade.StaticBody(scene.physics.world, healbox);
+        healboxCollider = scene.physics.add.collider(healbox, target, function(){takeDamage(target, 3)}, null, scene);
+        healbox.body = healboxBody;
         
-        scene.time.delayedCall(100, function(){hitbox.destroy()});
+        scene.time.delayedCall(100, function(){healbox.destroy()});
         
         player.setData('attackCooldown', 20);
     }
 }
 
 function takeDamage(target, damage){
-    target.setData('health', target.getData('health') + damage)
+    if (target.data.values.iframes == 0){
+        target.setData('health', target.getData('health') + damage)
+        target.data.values.iframes += 10;
+    }
+}
+function placeholder(){
+    console.log('placeholder!');
 }
 
 </script>
