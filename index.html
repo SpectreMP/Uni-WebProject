@@ -69,7 +69,7 @@ function create ()
     const farmUpLayer = map.createLayer('farm_up', [baseSet, waterSet, grassSet, flowerSet]);
     const collisionLayer = map.createLayer('collisions', []);
     
-    player = this.physics.add.sprite(1200, 1000, 'vagabond').setScale(2);
+    swordsman = this.physics.add.sprite(1200, 1000, 'vagabond').setScale(2);
     enemies = this.physics.add.group();
     enemy = enemies.create(1300, 1000, 'man', 6, true, true).setScale(2)
     
@@ -77,8 +77,8 @@ function create ()
     const buildingUpLayer = map.createLayer('building_up', [baseSet, waterSet, grassSet, flowerSet]);
     
     // Создадим игрока и расположим его в заданных координатах
-    player.setBodySize(10,10)
-    player.setOffset(27,57)
+    swordsman.setBodySize(10,10)
+    swordsman.setOffset(27,57)
 
     //  Наши анмации.
     this.anims.create({
@@ -128,6 +128,8 @@ function create ()
         repeat: -1
     });
 
+    player = swordsman;
+
     //  Отслеживание нажатий
     cursors = this.input.keyboard.createCursorKeys();
     positionText = this.add.text(16,16, 'Position: '+player.x+' '+player.y)
@@ -156,14 +158,14 @@ function update ()
     
     player.setVelocity(playerMoveDirection.x * speed, playerMoveDirection.y * speed)
     
-    if (playerMoveDirection.length()>0){
+    if (swordsman.body.velocity.length()>0){
         if (isTurned){
-            player.anims.play('playerMoveLeft', true)
+            swordsman.anims.play('playerMoveLeft', true)
         } else{
-            player.anims.play('playerMoveRight', true)
+            swordsman.anims.play('playerMoveRight', true)
         }
     } else {
-        isTurned ? player.anims.play('playerIdleRight', true) : player.anims.play('playerIdleLeft', true)
+        isTurned ? swordsman.anims.play('playerIdleRight', true) : swordsman.anims.play('playerIdleLeft', true)
     }
 
     positionText.setText('Position: '+player.x+' '+player.y);
@@ -203,16 +205,18 @@ function getDirections(cursors, scene){
         direction.y = 1;
     }
     if (cursors.shift.isDown){
-        heal(player, enemy, scene);
+        heal(player, enemies, scene);
     }
     if (cursors.space.isDown){
-        attack(player, enemy, scene);
+        attack(player, enemies, scene);
     }
     direction.normalize()
     return direction
 }
 function enemyLogic(scene, enemy, player){
-
+    if (enemy == player){
+        return 0;
+    }
     if (Phaser.Math.Distance.Between(enemy.body.x, enemy.body.y, player.body.x, player.body.y)<100){
         enemy.setVelocity(0);
         // console.log('AAAAAAAAAA!')
@@ -261,10 +265,10 @@ function attack(player, target, scene){
     if (player.getData('attackCooldown') == 0){
         hitbox = scene.add.rectangle(player.body.x, player.body.y, 100, 100, 0xff0000, 0.2);
         hitboxBody = new Phaser.Physics.Arcade.StaticBody(scene.physics.world, hitbox);
-        hitboxCollider = scene.physics.add.collider(hitbox, target, function(){takeDamage(target, -2)}, null, scene);
+        hitboxCollider = scene.physics.add.collider(hitbox, target, function(object1, object2){takeDamage(object2, -2)}, null, scene);
         hitbox.body = hitboxBody;
         
-        scene.time.delayedCall(100, function(){hitbox.destroy()});
+        scene.time.delayedCall(100, function(){hitbox.destroy(); hitboxBody.destroy(); hitboxCollider.destroy();});
         
         player.setData('attackCooldown', 20);
     }
@@ -273,7 +277,7 @@ function heal(player, target, scene){
     if (player.getData('attackCooldown') == 0){
         healbox = scene.add.rectangle(player.body.x, player.body.y, 100, 100, 0x00ff00, 0.2);
         healboxBody = new Phaser.Physics.Arcade.StaticBody(scene.physics.world, healbox);
-        healboxCollider = scene.physics.add.collider(healbox, target, function(){takeDamage(target, 3)}, null, scene);
+        healboxCollider = scene.physics.add.collider(healbox, target, function(object1, object2){takeDamage(object2, 3)}, null, scene);
         healbox.body = healboxBody;
         
         scene.time.delayedCall(100, function(){healbox.destroy()});
@@ -288,8 +292,8 @@ function takeDamage(target, damage){
         target.data.values.iframes += 10;
     }
 }
-function placeholder(){
-    console.log('placeholder!');
+function placeholder(a){
+    console.log(a);
 }
 
 </script>
