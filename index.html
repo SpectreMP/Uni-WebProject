@@ -1,20 +1,250 @@
-<!doctype html> 
-<html lang="en"> 
-<head> 
-    <meta charset="UTF-8" />
-    <title>Делаем игру на Phaser!</title>
-    <script src="../node_modules/phaser/dist/phaser.min.js"></script>
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Math warriors</title>
+    <script src="node_modules/phaser/dist/phaser.min.js"></script>
     <style type="text/css">
-        body {
+        body{
             margin: 0;
         }
     </style>
 </head>
 <body>
-
 <script type="text/javascript">
+var PLAYER;
+var DEBUG = false;
 
-var config = {
+class GameScene extends Phaser.Scene{
+    preload(){
+        this.load.spritesheet('vagabond', 'src/vagabond.png', {frameWidth:64});
+        this.load.spritesheet('mannequin', 'src/mannequin.png', {frameWidth:48})
+
+        this.load.image('base', 'src/SampleMap/[Base]BaseChip_pipo.png')
+        this.load.image('water', 'src/SampleMap/[A]Water_pipo.png')
+        this.load.image('grass', 'src/SampleMap/[A]Grass_pipo.png')
+        this.load.image('flower', 'src/SampleMap/[A]Flower_pipo.png')
+        this.load.tilemapTiledJSON('samplemap', 'src/SampleMap/samplemap.json')
+    }
+    create(){
+        const map = this.add.tilemap('samplemap' );
+
+        const baseSet = map.addTilesetImage('[Base]BaseChip_pipo', 'base');
+        const waterSet = map.addTilesetImage('[A]Water_pipo', 'water');
+        const grassSet = map.addTilesetImage('[A]Grass_pipo', 'grass');
+        const flowerSet = map.addTilesetImage('[A]Flower_pipo', 'flower');
+
+        const groundLayer = map.createLayer('ground', [baseSet, waterSet, grassSet, flowerSet]);
+        const grassLayer = map.createLayer('grass', [baseSet, waterSet, grassSet, flowerSet]);
+        const waterLayer = map.createLayer('water', [baseSet, waterSet, grassSet, flowerSet]);
+        const waterGrassLayer = map.createLayer('water_grass', [baseSet, waterSet, grassSet, flowerSet]);
+        const buildingLayer = map.createLayer('building', [baseSet, waterSet, grassSet, flowerSet]);
+        const farmLayer = map.createLayer('farm', [baseSet, waterSet, grassSet, flowerSet]);
+        const farmUpLayer = map.createLayer('farm_up', [baseSet, waterSet, grassSet, flowerSet]);
+        const collisionLayer = map.createLayer('collisions', DEBUG ? [baseSet] : []);
+        const treeLayer = map.createLayer('tree', [baseSet, waterSet, grassSet, flowerSet]);
+        const buildingUpLayer = map.createLayer('building_up', [baseSet, waterSet, grassSet, flowerSet]);
+
+        this.creatures = this.physics.add.group();
+        this.enemies = this.physics.add.group();
+        this.allies = this.physics.add.group();
+
+        const vagabond = new Creature({
+            scene: this,
+            x: 120,
+            y: 120,
+            texture: 'vagabond',
+            health: 10,
+            damage: 2,
+            speed: 200,
+            scale: 2,
+            idleAnimation: 'vagabondIdle',
+            moveAnimation: 'vagabondMove'
+        });
+
+        const mannequin = new Creature({
+            scene: this,
+            x: 320,
+            y: 120,
+            texture: 'mannequin',
+            health: 10,
+            damage: 2,
+            speed: 200,
+            scale: 3,
+            idleAnimation: 'mannequinIdle',
+            moveAnimation: 'mannequinMove'
+        })
+        
+        const mannequin2 = new Creature({
+            scene: this,
+            x: 320,
+            y: 320,
+            texture: 'mannequin',
+            health: 10,
+            damage: 2,
+            speed: 200,
+            scale: 3,
+            idleAnimation: 'mannequinIdle',
+            moveAnimation: 'mannequinMove'
+        })
+
+        this.anims.create({
+            key:'vagabondMove',
+            frames:this.anims.generateFrameNumbers('vagabond', {start:0, end:7}),
+            frameRate: 8
+        });
+
+        this.anims.create({
+            key:'vagabondIdle',
+            frames: [{key:'vagabond', frame:16}],
+            frameRate: 8
+        });
+
+        this.anims.create({
+            key:'mannequinMove',
+            frames:this.anims.generateFrameNumbers('mannequin', {start:0, end:5}),
+            frameRate: 8
+        });
+        
+        this.anims.create({
+            key:'mannequinIdle',
+            frames:[{key: 'mannequin', frame: 6}],
+            frameRate: 8
+        });
+        
+        this.anims.create
+
+
+        this.cursors = this.input.keyboard.createCursorKeys();
+
+        PLAYER = vagabond;
+
+        this.enemies.add(mannequin);
+        this.enemies.add(mannequin2);
+
+        collisionLayer.setCollision(294);
+        this.physics.add.collider(this.creatures, collisionLayer);
+
+        this.cameras.main.startFollow(PLAYER, true, 0.2, 0.2);
+
+        console.log(this)
+    }
+    update(){
+
+    }
+}
+
+class Creature extends Phaser.Physics.Arcade.Sprite{
+    constructor(config){
+        super(config.scene, config.x, config.y, config.texture);
+        this.scene.add.existing(this);
+        this.scene.physics.add.existing(this);
+        this.scene.creatures.add(this);
+
+        this.setScale(config.scale);
+        this.setBodySize(5, 5)
+        this.setOffset(this.width/2 - 5/2, this.height - 5/2)
+
+        this.setData('health', config.health);
+        this.setData('damage', config.damage);
+        this.setData('speed', config.speed);
+        this.setData('iframes', 0);
+        this.setData('attackCooldown', 0);
+
+        this.idleAnimation = config.idleAnimation;
+        this.moveAnimation = config.moveAnimation;
+
+        if (DEBUG){
+            this.debugPositionPoint = this.scene.add.ellipse(this.body.center.x, this.body.center.y, this.scale*5, this.scale*5, 0xff0000)
+        }
+    };
+    
+    takeDamage(damage){
+        if (this.data.values.iframes == 0){
+            this.data.values.health -= damage;
+            this.data.values.iframes = 10;
+        };
+        console.log('Осталось ', this.data.values.health)
+    };
+
+    attack(damage, delay, cooldown){
+        if (this.data.values.attackCooldown == 0){
+            let hitbox = this.scene.add.rectangle(this.body.center.x, this.body.center.y, 100, 100, 0x000000, 0.2);
+            let hitboxBody = new Phaser.Physics.Arcade.StaticBody(this.scene.physics.world, hitbox);
+            let hitboxCollider = this.scene.physics.add.collider(hitbox, this.scene.enemies, function(object1, object2){object2.takeDamage(damage)})
+            hitbox.body = hitboxBody;
+
+            this.scene.time.delayedCall(delay, function(){hitbox.destroy(); hitboxBody.destroy(); hitboxCollider.destroy();})
+            
+            this.data.values.attackCooldown = cooldown;
+        }
+    }
+
+    progressEffects(){
+        if (this.data.values.iframes > 0){
+            this.data.values.iframes -= 1;
+        };
+        if (this.data.values.attackCooldown>0){
+            this.data.values.attackCooldown -= 1;
+        }
+    };
+
+    playerControl(input){
+
+        let direction = new Phaser.Math.Vector2(0,0);
+
+        if (input.left.isDown){
+            direction.x = -1;
+        }
+        if (input.right.isDown){
+            direction.x = 1;
+        }
+        if (input.up.isDown){
+            direction.y = -1;
+        }
+        if (input.down.isDown){
+            direction.y = 1;
+        }
+        if (input.space.isDown){
+            this.attack(2, 100, 20);
+        }
+        
+        direction.normalize();
+        this.body.setVelocity(direction.x * this.data.values.speed, direction.y * this.data.values.speed);
+    }
+    
+    preUpdate(delta, time){
+        super.preUpdate(delta, time);
+        if (this == PLAYER){
+            this.playerControl(this.scene.cursors)
+        } else {
+            this.setVelocity(0);
+        }
+
+        if (this.body.velocity.x<0){
+            this.flipX = true;
+        }
+        if (this.body.velocity.x>0){
+            this.flipX = false;
+        }
+        if (this.body.velocity.length() == 0){
+            this.anims.play(this.idleAnimation, true)
+        } else {
+            this.anims.play(this.moveAnimation, true);
+        }
+
+        this.progressEffects();
+        if (DEBUG){
+            this.debugPositionPoint.setPosition(this.body.center.x, this.body.center.y)
+        }
+    }
+}
+function setPlayer(target){
+    PLAYER = target;
+    target.scene.cameras.main.startFollow(target);
+}
+
+const config = {
     type: Phaser.AUTO,
     width: 1024,
     height: 768,
@@ -24,279 +254,12 @@ var config = {
             debug: false
         }
     },
-    scene: {
-        preload: preload,
-        create: create,
-        update: update
-    }
+    scene:GameScene
 };
 
-var game = new Phaser.Game(config);
-
-function preload ()
-{
-    this.load.spritesheet('vagabond', 'src/vagabond.png', {frameWidth:64, frameHeight:64});
-    this.load.spritesheet('man', 'src/mannequin.png', {frameWidth:48, frameHeight: 48})
-    this.load.image('sky', 'src/sky.png')
-
-    this.load.image('base', 'src/SampleMap/[Base]BaseChip_pipo.png')
-    this.load.image('water', 'src/SampleMap/[A]Water_pipo.png')
-    this.load.image('grass', 'src/SampleMap/[A]Grass_pipo.png')
-    this.load.image('flower', 'src/SampleMap/[A]Flower_pipo.png')
-    this.load.tilemapTiledJSON('samplemap', 'src/SampleMap/samplemap.json')
-}
-
-var speed = 200;
-var isTurned = false;
-var positionText;
-var seconds = 0;
-
-function create ()
-{
-    map = this.add.tilemap('samplemap' );
-
-    const baseSet = map.addTilesetImage('[Base]BaseChip_pipo', 'base');
-    const waterSet = map.addTilesetImage('[A]Water_pipo', 'water');
-    const grassSet = map.addTilesetImage('[A]Grass_pipo', 'grass');
-    const flowerSet = map.addTilesetImage('[A]Flower_pipo', 'flower');
-
-    const groundLayer = map.createLayer('ground', [baseSet, waterSet, grassSet, flowerSet]);
-    const grassLayer = map.createLayer('grass', [baseSet, waterSet, grassSet, flowerSet]);
-    const waterLayer = map.createLayer('water', [baseSet, waterSet, grassSet, flowerSet]);
-    const waterGrassLayer = map.createLayer('water_grass', [baseSet, waterSet, grassSet, flowerSet]);
-    const buildingLayer = map.createLayer('building', [baseSet, waterSet, grassSet, flowerSet]);
-    const farmLayer = map.createLayer('farm', [baseSet, waterSet, grassSet, flowerSet]);
-    const farmUpLayer = map.createLayer('farm_up', [baseSet, waterSet, grassSet, flowerSet]);
-    const collisionLayer = map.createLayer('collisions', []);
-    
-    swordsman = this.physics.add.sprite(1200, 1000, 'vagabond').setScale(2);
-    enemies = this.physics.add.group();
-    enemy = enemies.create(1300, 1000, 'man', 6, true, true).setScale(2)
-    
-    const treeLayer = map.createLayer('tree', [baseSet, waterSet, grassSet, flowerSet]);
-    const buildingUpLayer = map.createLayer('building_up', [baseSet, waterSet, grassSet, flowerSet]);
-    
-    // Создадим игрока и расположим его в заданных координатах
-    swordsman.setBodySize(10,10)
-    swordsman.setOffset(27,57)
-
-    //  Наши анмации.
-    this.anims.create({
-        key: 'playerMoveLeft',
-        frames: this.anims.generateFrameNumbers('vagabond', { start: 8, end: 15 }),
-        frameRate: 10,
-        repeat: -1,
-    });
-
-    this.anims.create({
-        key: 'playerIdleRight',
-        frames: [ { key: 'vagabond', frame: 17 } ],
-        frameRate: 20
-    });
-    
-    this.anims.create({
-        key: 'playerIdleLeft',
-        frames: [ { key: 'vagabond', frame: 16 } ],
-        frameRate: 20
-    });
-
-    this.anims.create({
-        key: 'playerMoveRight',
-        frames: this.anims.generateFrameNumbers('vagabond', { start: 0, end: 7 }),
-        frameRate: 10,
-        repeat: -1
-    });
-
-    this.anims.create({
-        key: 'enemyMoveRight',
-        frames: this.anims.generateFrameNumbers('man', { start: 0, end: 5 }),
-        frameRate: 8,
-        repeat: -1
-    });
-
-    this.anims.create({
-        key: 'enemyMoveLeft',
-        frames: this.anims.generateFrameNumbers('man', { start: 12, end: 7 }),
-        frameRate: 8,
-        repeat: -1
-    });
-    
-    this.anims.create({
-        key: 'enemyIdle',
-        frames: [ { key: 'man', frame: 6 } ],
-        frameRate: 8,
-        repeat: -1
-    });
-
-    player = swordsman;
-
-    //  Отслеживание нажатий
-    cursors = this.input.keyboard.createCursorKeys();
-    positionText = this.add.text(16,16, 'Position: '+player.x+' '+player.y)
-    positionText.scrollFactorX = 0
-    positionText.scrollFactorY = 0
-
-    enemy.setBodySize(15, 15);
-    enemy.setOffset(16, 38);
-    enemy.setData('health', 7);
-    enemy.setData('iframes', 10);
-    enemytext = this.add.text(enemy.x, enemy.y - 20, enemy.getData('health'))
-
-    collisionLayer.setCollision(294)
-    this.physics.add.collider(player, collisionLayer)
-    this.physics.add.collider(enemies, collisionLayer)
-
-    playercircle = this.add.ellipse(player.body.center.x, player.body.center.y, 10, 10, 0xff0000)
-    enemycircle = this.add.ellipse(enemy.x, enemy.y, 15, 15, 0x0000ff)
-
-    player.setData('attackCooldown', 0)
-}
-
-function update ()
-{
-    playerMoveDirection = getDirections(cursors, this) 
-    
-    player.setVelocity(playerMoveDirection.x * speed, playerMoveDirection.y * speed)
-    
-    if (swordsman.body.velocity.length()>0){
-        if (isTurned){
-            swordsman.anims.play('playerMoveLeft', true)
-        } else{
-            swordsman.anims.play('playerMoveRight', true)
-        }
-    } else {
-        isTurned ? swordsman.anims.play('playerIdleRight', true) : swordsman.anims.play('playerIdleLeft', true)
-    }
-
-    positionText.setText('Position: '+player.x+' '+player.y);
-    enemytext.setText(enemy.getData('health'));
-    enemytext.setPosition(enemy.x, enemy.y - 20)
-    
-    this.cameras.main.startFollow(player, true, 0.1, 0.1);
-    enemyLogic(this, enemy, player);
-    //11 - up, 12 - down, 13 -  left, 14 - right
-    // console.log(player.body.facing)
-    playercircle.setPosition(player.body.center.x, player.body.center.y)
-    enemycircle.setPosition(enemy.body.center.x, enemy.body.center.y)
-
-    if (player.getData('attackCooldown')>0){
-        player.setData('attackCooldown', player.getData('attackCooldown') - 1)
-    }
-}
-function getDirections(cursors, scene){
-    let direction = new Phaser.Math.Vector2(0,0);
-
-    if (cursors.left.isDown)
-    {
-        direction.x = -1;
-        isTurned = true;
-    }
-    if (cursors.right.isDown)
-    {
-        direction.x = 1;
-        isTurned = false;
-    }
-    if (cursors.up.isDown)
-    {
-        direction.y = -1;
-    }
-    if (cursors.down.isDown)
-    {
-        direction.y = 1;
-    }
-    if (cursors.shift.isDown){
-        heal(player, enemies, scene);
-    }
-    if (cursors.space.isDown){
-        attack(player, enemies, scene);
-    }
-    direction.normalize()
-    return direction
-}
-function enemyLogic(scene, enemy, player){
-    if (enemy == player){
-        return 0;
-    }
-    if (Phaser.Math.Distance.Between(enemy.body.x, enemy.body.y, player.body.x, player.body.y)<100){
-        enemy.setVelocity(0);
-        // console.log('AAAAAAAAAA!')
-    } else {
-        scene.physics.moveTo(enemy, player.body.x, player.body.y-enemy.height, speed*0.9);
-    }
-
-    enemy.flipX = false;
-    if (enemy.body.velocity.x > 0){
-        enemy.setData('turned', true);
-    } 
-    if(enemy.body.velocity.x < 0) {
-        enemy.setData('turned', false);
-    }
-    if (enemy.body.velocity.length()>0){
-        if(enemy.getData('turned')){
-            enemy.anims.play('enemyMoveRight', true);
-        } else {
-            enemy.anims.play('enemyMoveLeft', true);
-        }
-    } else {
-        enemy.anims.play('enemyIdle', true)
-        enemy.getData('turned') ? enemy.flipX = false : enemy.flipX = true;
-    }
-    if (enemy.getData('health') == 0){
-        console.log("Enemy is Dead!");
-        enemy.setData('health', Phaser.Math.Between(-10, 10));
-        randomTeleportEnemy(enemy);
-    }
-    if (enemy.getData('health') < 0 ){
-        enemy.setTint(0x880088)
-    }
-    else{
-        enemy.clearTint();
-    }
-    if (enemy.getData('iframes')>0){
-        enemy.data.values.iframes -= 1;
-    }
-}
-function randomTeleportEnemy(enemy){
-    while (Phaser.Math.Distance.Between(enemy.x, enemy.y, player.x, player.y)<300){
-        enemy.setPosition(Phaser.Math.Between(0, 1900), Phaser.Math.Between(0, 1900));
-    }
-}
-function attack(player, target, scene){
-    if (player.getData('attackCooldown') == 0){
-        hitbox = scene.add.rectangle(player.body.x, player.body.y, 100, 100, 0xff0000, 0.2);
-        hitboxBody = new Phaser.Physics.Arcade.StaticBody(scene.physics.world, hitbox);
-        hitboxCollider = scene.physics.add.collider(hitbox, target, function(object1, object2){takeDamage(object2, -2)}, null, scene);
-        hitbox.body = hitboxBody;
-        
-        scene.time.delayedCall(100, function(){hitbox.destroy(); hitboxBody.destroy(); hitboxCollider.destroy();});
-        
-        player.setData('attackCooldown', 20);
-    }
-}
-function heal(player, target, scene){
-    if (player.getData('attackCooldown') == 0){
-        healbox = scene.add.rectangle(player.body.x, player.body.y, 100, 100, 0x00ff00, 0.2);
-        healboxBody = new Phaser.Physics.Arcade.StaticBody(scene.physics.world, healbox);
-        healboxCollider = scene.physics.add.collider(healbox, target, function(object1, object2){takeDamage(object2, 3)}, null, scene);
-        healbox.body = healboxBody;
-        
-        scene.time.delayedCall(100, function(){healbox.destroy()});
-        
-        player.setData('attackCooldown', 20);
-    }
-}
-
-function takeDamage(target, damage){
-    if (target.data.values.iframes == 0){
-        target.setData('health', target.getData('health') + damage)
-        target.data.values.iframes += 10;
-    }
-}
-function placeholder(a){
-    console.log(a);
-}
+const game = new Phaser.Game(config);
 
 </script>
-
+    
 </body>
 </html>
