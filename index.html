@@ -18,7 +18,9 @@ var DEBUG = false;
 class GameScene extends Phaser.Scene{
     preload(){
         this.load.spritesheet('vagabond', 'src/vagabond.png', {frameWidth:64});
-        this.load.spritesheet('mannequin', 'src/mannequin.png', {frameWidth:48})
+        this.load.spritesheet('priest', 'src/priest.png', {frameWidth:64});
+        this.load.spritesheet('mannequin', 'src/mannequin_spritesheet.png', {frameWidth:48})
+        this.load.spritesheet('slash', 'src/slash.png', {frameWidth: 275, frameHeight: 200})
 
         this.load.image('base', 'src/SampleMap/[Base]BaseChip_pipo.png')
         this.load.image('water', 'src/SampleMap/[A]Water_pipo.png')
@@ -52,33 +54,41 @@ class GameScene extends Phaser.Scene{
         //TODO: Добавить загрузку всего из одного файла
         const vagabond = new AllyCreature({
             scene: this,
-            x: 960,
-            y: 960,
+            x: 260,
+            y: 400,
             texture: 'vagabond',
             health: 10,
             damage: 2,
-            attackReach: 100,
+            attackReach: 150,
             speed: 250,
             scale: 2,
             idleAnimation: 'vagabondIdle',
-            moveAnimation: 'vagabondMove'
+            moveAnimation: 'vagabondMove',
+            attackAnimation: 'slash',
+            deathAnimation: 'vagabondIdle'
         })
 
         const priest = new AllyCreature({
             scene: this,
-            x: 900,
-            y: 960,
+            x: 200,
+            y: 400,
             texture: 'vagabond',
             health: 10,
-            damage: -2,
-            attackReach: 100,
+            damage: -3,
+            attackReach: 150,
             speed: 250,
             scale: 2,
-            idleAnimation: 'vagabondIdle',
-            moveAnimation: 'vagabondMove'
+            idleAnimation: 'priestIdle',
+            moveAnimation: 'priestMove',
+            attackAnimation: 'slash',
+            deathAnimation: 'priestIdle'
         })
         
-        this.createMannequinEnemy(600, 1000, 12);
+        this.createMannequinEnemy(400, 960, 7);
+        this.createMannequinEnemy(280, 920, 5);
+        const boss = this.createMannequinEnemy(1720, 1720, 13);
+        boss.setScale(4);
+        boss.data.values.damage = 2;
 
         this.anims.create({
             key:'vagabondMove',
@@ -88,20 +98,45 @@ class GameScene extends Phaser.Scene{
 
         this.anims.create({
             key:'vagabondIdle',
-            frames: [{key:'vagabond', frame:16}],
+            frames: [{key:'vagabond', frame:8}],
+            frameRate: 8
+        })
+
+        this.anims.create({
+            key:'priestMove',
+            frames:this.anims.generateFrameNumbers('priest', {start:0, end:7}),
+            frameRate: 8
+        })
+
+        this.anims.create({
+            key:'priestIdle',
+            frames: [{key:'priest', frame:8}],
             frameRate: 8
         })
 
         this.anims.create({
             key:'mannequinMove',
-            frames:this.anims.generateFrameNumbers('mannequin', {start:0, end:5}),
+            frames:this.anims.generateFrameNumbers('mannequin', {start:20, end:25}),
             frameRate: 8
         })
         
         this.anims.create({
             key:'mannequinIdle',
-            frames:[{key: 'mannequin', frame: 6}],
+            frames:[{key: 'mannequin', frame: 3}],
             frameRate: 8
+        })
+
+        this.anims.create({
+            key:'mannequinDeath',
+            frames:this.anims.generateFrameNumbers('mannequin', {start:90, end:95}),
+            frameRate: 8
+        })
+
+        this.anims.create({
+            key: 'slash',
+            frames: this.anims.generateFrameNumbers('slash', {start:0, end: 5}),
+            showOnStart: true,
+            hideOnComplete: true
         })
 
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -110,6 +145,7 @@ class GameScene extends Phaser.Scene{
 
         collisionLayer.setCollision(294);
         this.physics.add.collider(this.creatures, collisionLayer);
+        this.physics.add.collider(this.enemies, this.enemies);
 
         this.cameras.main.startFollow(PLAYER, true, 0.2, 0.2);
 
@@ -123,10 +159,8 @@ class GameScene extends Phaser.Scene{
         if (this.cursors.shift.isDown && PLAYER.data.values.attackCooldown == 0){
             if (PLAYER == this.allies.getChildren()[0]){
                 setPlayer(this.allies.getChildren()[1]);
-                console.log('Меняю на странника!')
             } else {
                 setPlayer(this.allies.getChildren()[0]);
-                console.log('Меняю на священника!')
             }
             PLAYER.data.values.attackCooldown += 20;
         }
@@ -140,12 +174,15 @@ class GameScene extends Phaser.Scene{
             texture: 'mannequin',
             health: health,
             damage: 1,
-            attackReach: 50,
+            attackReach: 100,
             speed: 150,
             scale: 3,
             idleAnimation: 'mannequinIdle',
-            moveAnimation: 'mannequinMove'
+            moveAnimation: 'mannequinMove',
+            attackAnimation: 'slash',
+            deathAnimation: 'mannequinDeath'
         })
+        return mannequin;
     }
 }
 
@@ -166,9 +203,12 @@ class Creature extends Phaser.Physics.Arcade.Sprite{
         this.setData('attackReach', config.attackReach);
         this.setData('iframes', 0);
         this.setData('attackCooldown', 0);
+        this.setData('isDead', false);
 
         this.idleAnimation = config.idleAnimation;
         this.moveAnimation = config.moveAnimation;
+        this.attackAnimation = config.attackAnimation;
+        this.deathAnimation = config.deathAnimation;
 
         if (DEBUG){
             this.debugPositionPoint = this.scene.add.ellipse(this.body.center.x, this.body.center.y, this.scale*5, this.scale*5, 0xff0000)
@@ -179,20 +219,31 @@ class Creature extends Phaser.Physics.Arcade.Sprite{
         if (this.data.values.iframes == 0){
             this.data.values.health -= damage;
 
-            this.data.values.iframes = 10;
+            this.data.values.iframes = 20;
         };
+        if (this.data.values.health == 0){
+            this.data.values.isDead = true;
+        }
     }
 
     attack(target, damage, delay, cooldown){
         if (this.data.values.attackCooldown == 0){
-            let hitbox = this.scene.add.rectangle(this.body.center.x, this.body.center.y, this.data.values.attackReach, this.data.values.attackReach, 0x000000, 0.2);
-            let hitboxBody = new Phaser.Physics.Arcade.StaticBody(this.scene.physics.world, hitbox);
-            let hitboxCollider = this.scene.physics.add.collider(hitbox, target, function(object1, object2){object2.takeDamage(damage)})
-            hitbox.body = hitboxBody;
+            this.scene.time.delayedCall(delay, function(){
+                let hitbox = this.scene.add.rectangle(this.body.center.x + (this.flipX ? -this.width : this.width), this.body.center.y, this.data.values.attackReach, this.data.values.attackReach, 0x000000, 0);
+                let hitboxBody = new Phaser.Physics.Arcade.StaticBody(this.scene.physics.world, hitbox);
+                let hitboxCollider = this.scene.physics.add.overlap(hitbox, target, function(object1, object2){object2.takeDamage(damage)})
+                hitbox.body = hitboxBody;
 
-            this.scene.time.delayedCall(delay, function(){hitbox.destroy(); hitboxBody.destroy(); hitboxCollider.destroy();})
+                this.scene.time.delayedCall(200, function(){hitbox.destroy(); hitboxBody.destroy(); hitboxCollider.destroy();})
+            }, null, this)
             
             this.data.values.attackCooldown = cooldown;
+
+            let slash = this.scene.add.sprite(this.body.center.x, this.body.center.y - this.height/2, 'slash').setDepth(this.body.center.y+1)
+            if (this.flipX){
+                slash.flipX = true;
+            }
+            slash.anims.play('slash');
         }
     }
     
@@ -222,7 +273,7 @@ class Creature extends Phaser.Physics.Arcade.Sprite{
             direction.y = 1;
         }
         if (input.space.isDown){
-            this.attack(this.scene.enemies, this.data.values.damage, 100, 20);
+            this.attack(this.scene.enemies, this.data.values.damage, 0, 20);
         }
         
         direction.normalize();
@@ -231,8 +282,17 @@ class Creature extends Phaser.Physics.Arcade.Sprite{
     
     preUpdate(delta, time){
         super.preUpdate(delta, time);
-        if (this == PLAYER){
 
+        if (this.data.values.isDead){
+            this.setVelocity(0);
+            this.anims.play(this.deathAnimation, true);
+            if (this.anims.currentFrame.isLast){
+                this.removeFromUpdateList();
+            }
+            return 0;
+        }
+
+        if (this == PLAYER){
             this.playerControl(this.scene.cursors);
         }
 
@@ -262,9 +322,29 @@ class EnemyCreature extends Creature{
         super(config);
         this.scene.enemies.add(this);
 
+        this.healthbar = this.scene.add.text(this.x, this.y-this.height/2, this.data.values.health, { fontSize: '20px', color: '#ffffff', strokeThickness: 1, stroke: '#000'});
     }
     preUpdate(delta, time){
         super.preUpdate(delta, time);
+        
+        this.healthbar.setPosition(this.x-this.healthbar.width/2, this.y-this.height/2);
+        this.healthbar.setText(this.data.values.health);
+        if (this.data.values.health>0){
+            this.healthbar.setColor('#fff');
+        } else {
+            this.healthbar.setColor('#b6b');
+        }
+
+        if (this.data.values.isDead){
+            this.healthbar.setText('')
+            return 0;
+        }
+
+        if (this.data.values.health>0){
+            this.clearTint();
+        } else {
+            this.setTint(0xbb66bb)
+        }
 
         if (PLAYER == this){
             return 0;
@@ -278,7 +358,7 @@ class EnemyCreature extends Creature{
         }
         if (distanceToPlayer <= 50){
             this.setVelocity(0);
-            this.attack(PLAYER, this.data.values.damage, 100, 60);
+            this.attack(PLAYER, this.data.values.damage, 400, 60);
             if (this.body.center.x > PLAYER.body.center.x){
                 this.flipX = true;
             } else {
@@ -295,6 +375,10 @@ class AllyCreature extends Creature{
     }
     preUpdate(delta, time){
         super.preUpdate(delta, time);
+
+        if (this.data.values.iframes>0){
+            
+        }
 
         if (PLAYER == this){
             return 0;
@@ -319,6 +403,21 @@ function setPlayer(target){
     target.scene.cameras.main.startFollow(target);
 }
 
+class Menu extends Phaser.Scene{
+    preload(){
+
+    }
+    create(){
+        this.add.text(140, 384, "PRESS SPACE TO START", { fontSize: '62px', color: '#ffffff', strokeThickness: 1, stroke: '#000'})
+        this.cursors = this.input.keyboard.createCursorKeys();
+    }
+    update(){
+        if (this.cursors.space.isDown){
+            this.scene.start('level1');
+        }
+    }
+}
+
 const config = {
     type: Phaser.AUTO,
     width: 1024,
@@ -333,6 +432,7 @@ const config = {
 };
 
 const game = new Phaser.Game(config);
+game.scene.add('level1', GameScene)
 
 </script>
     
