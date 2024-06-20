@@ -85,7 +85,7 @@ class GameScene extends Phaser.Scene{
         })
         
         this.createMannequinEnemy(400, 960, 7);
-        this.createMannequinEnemy(280, 920, 5);
+        this.createMannequinEnemy(280, 920, -4);
         const boss = this.createMannequinEnemy(1720, 1720, 13);
         boss.setScale(4);
         boss.data.values.damage = 2;
@@ -428,7 +428,7 @@ const config = {
             debug: false
         }
     },
-    scene:GameScene
+    scene:Menu
 };
 
 const game = new Phaser.Game(config);
